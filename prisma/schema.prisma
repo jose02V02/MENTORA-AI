@@ -1,0 +1,106 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [vector]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  learningDNA  LearningDNA?
+  documents    Document[]
+  interactions Interaction[]
+  quizzes      Quiz[]
+}
+
+model LearningDNA {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Profiling metrics
+  preferredStyle String   @default("balanced") // visual, analogical, logical
+  memoryRetention Float   @default(0.5) // estimated retention rate
+  strengths      String[] // e.g., ["logic", "math"]
+  weaknesses     String[] // e.g., ["memorization", "dates"]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  type      String   // pdf, youtube, web, text
+  content   String?  @db.Text
+  url       String?
+  
+  concepts  Concept[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Concept {
+  id          String   @id @default(cuid())
+  documentId  String?
+  document    Document? @relation(fields: [documentId], references: [id])
+  name        String
+  description String   @db.Text
+  embedding   Unsupported("vector(768)")?
+
+  // Graph relations
+  sourceEdges ConceptEdge[] @relation("SourceConcept")
+  targetEdges ConceptEdge[] @relation("TargetConcept")
+
+  masteryLevel Float @default(0.0) // 0.0 to 1.0 (Comprehension percentage)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ConceptEdge {
+  id            String   @id @default(cuid())
+  sourceId      String
+  targetId      String
+  relationship  String   // e.g., "is_a", "prerequisite_for", "part_of"
+  
+  source        Concept  @relation("SourceConcept", fields: [sourceId], references: [id], onDelete: Cascade)
+  target        Concept  @relation("TargetConcept", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, targetId, relationship])
+}
+
+model Interaction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   // user, teacher, feynman, professor
+  content   String   @db.Text
+  
+  createdAt DateTime @default(now())
+}
+
+model Quiz {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic       String
+  score       Float?
+  questions   Json     // Array of questions and user answers
+  
+  createdAt   DateTime @default(now())
+}

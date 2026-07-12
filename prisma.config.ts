@@ -9,9 +9,9 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: process.env["DATABASE_URL"] || "postgresql://dummy:password@localhost:5432/dummy",
     // Prisma's config expects `shadowDatabaseUrl` for an alternate DB URL
     // (previously `directUrl` is not a known property here)
-    shadowDatabaseUrl: process.env["DIRECT_URL"],
+    shadowDatabaseUrl: process.env["DIRECT_URL"] || "postgresql://dummy:password@localhost:5432/dummy",
   },
 });
