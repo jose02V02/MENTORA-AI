@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { Upload, Link as LinkIcon, Sparkles, BookOpen, Brain, GitMerge, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -11,12 +12,45 @@ export default function Home() {
   const { scrollYProgress } = useScroll();
   const y = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
+  const router = useRouter();
+
   const handleProcess = async () => {
     if (!inputValue.trim()) return;
     setIsAnalyzing(true);
-    setTimeout(() => {
+    
+    try {
+      const formData = new FormData();
+      // Verifichiamo se l'input sembra un URL
+      if (inputValue.startsWith("http://") || inputValue.startsWith("https://")) {
+        formData.append("url", inputValue.trim());
+      } else {
+        alert("Per ora supportiamo solo link (URL di siti web o video YouTube). Inserisci un link valido.");
+        setIsAnalyzing(false);
+        return;
+      }
+
+      const res = await fetch("/api/ingest", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Errore durante l'elaborazione");
+      }
+
+      const data = await res.json();
+      if (data.success && data.documentId) {
+        router.push(`/classroom/${data.documentId}`);
+      } else {
+        throw new Error(data.error || "Risposta server non valida");
+      }
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || "Qualcosa è andato storto.");
+    } finally {
       setIsAnalyzing(false);
-    }, 2000);
+    }
   };
 
   return (

@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import * as pdfParse from "pdf-parse";
+import { YoutubeTranscript } from "youtube-transcript";
 
 export class ContentExtractor {
   
@@ -8,6 +9,12 @@ export class ContentExtractor {
    */
   static async fromUrl(url: string): Promise<string> {
     try {
+      // Handle YouTube URLs specifically
+      if (url.includes("youtube.com") || url.includes("youtu.be")) {
+        const transcript = await YoutubeTranscript.fetchTranscript(url);
+        return transcript.map(t => t.text).join(" ").replace(/\s+/g, " ").trim();
+      }
+
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch URL");
       
