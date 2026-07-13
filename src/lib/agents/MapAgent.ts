@@ -1,6 +1,6 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import Groq from "groq-sdk";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export interface ExtractedConcept {
   name: string;
@@ -20,70 +20,44 @@ export interface MapAgentResult {
 
 export class MapAgent {
   /**
-   * Processes raw text to extract core concepts and their relationships using Gemini.
+   * Processes raw text to extract core concepts and their relationships using Groq.
    */
   static async extractKnowledgeGraph(text: string): Promise<MapAgentResult> {
-    const prompt = `
-    Sei il Map Agent di Mentora AI. Il tuo compito è leggere il seguente testo didattico ed estrarne i concetti fondamentali e le relazioni tra essi per costruire un Knowledge Graph.
-    
-    Testo da analizzare:
-    """
-    ${text.substring(0, 30000)} // Limite per sicurezza, Gemini supporta molto di più
-    """
-    `;
+    const systemPrompt = `Sei il Map Agent di Mentora AI. Il tuo compito è leggere il testo didattico fornito ed estrarne i concetti fondamentali e le relazioni tra essi per costruire un Knowledge Graph.
+Devi rispondere SOLO con un oggetto JSON valido con la seguente struttura, senza alcun testo aggiuntivo:
+{
+  "concepts": [
+    { "name": "Nome", "description": "Descrizione chiara" }
+  ],
+  "edges": [
+    { "sourceConcept": "Nome1", "targetConcept": "Nome2", "relationship": "is_a|part_of|causes|prerequisite_for" }
+  ]
+}
+Tutti i nomi nei concetti devono essere stringhe univoche, e le relazioni devono fare riferimento ESATTAMENTE a quei nomi.`;
 
-    const responseSchema: Schema = {
-      type: Type.OBJECT,
-      properties: {
-        concepts: {
-          type: Type.ARRAY,
-          description: "Lista dei concetti principali trovati nel testo",
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              name: { type: Type.STRING, description: "Nome del concetto" },
-              description: { type: Type.STRING, description: "Descrizione chiara e concisa del concetto" },
-            },
-            required: ["name", "description"]
-          }
-        },
-        edges: {
-          type: Type.ARRAY,
-          description: "Lista delle relazioni tra i concetti estratti",
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              sourceConcept: { type: Type.STRING, description: "Nome del concetto di partenza (deve esistere in concepts)" },
-              targetConcept: { type: Type.STRING, description: "Nome del concetto di destinazione (deve esistere in concepts)" },
-              relationship: { type: Type.STRING, description: "Tipo di relazione (es. 'is_a', 'part_of', 'causes', 'prerequisite_for')" },
-            },
-            required: ["sourceConcept", "targetConcept", "relationship"]
-          }
-        }
-      },
-      required: ["concepts", "edges"]
-    };
+    const userPrompt = `Testo da analizzare:\n"""\n${text.substring(0, 30000)}\n"""`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: responseSchema,
-          temperature: 0.2, // Bassa temperatura per maggiore precisione
-        }
+      const response = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2,
       });
 
-      if (!response.text) {
-          throw new Error("No response text from Gemini");
+      const responseText = response.choices[0]?.message?.content;
+      if (!responseText) {
+          throw new Error("No response text from Groq");
       }
 
-      const result: MapAgentResult = JSON.parse(response.text);
+      const result: MapAgentResult = JSON.parse(responseText);
       return result;
     } catch (error) {
       console.error("MapAgent Extraction Error:", error);
-      throw new Error("Failed to extract Knowledge Graph using Gemini.");
+      throw new Error("Failed to extract Knowledge Graph using Groq.");
     }
   }
 }

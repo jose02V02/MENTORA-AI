@@ -1,6 +1,6 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import Groq from "groq-sdk";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export interface FeynmanEvaluation {
   score: number; // 0 to 100
@@ -17,52 +17,35 @@ export class FeynmanAgent {
     trueContext: string
   ): Promise<FeynmanEvaluation> {
     
-    const prompt = `
-      Sei il Feynman Agent di Mentora AI. Il tuo obiettivo è valutare la spiegazione fornita da uno studente su un concetto, confrontandola con la verità (il contesto).
-      Devi calcolare un punteggio di comprensione (da 0 a 100), fornire un feedback costruttivo e identificare quali concetti chiave mancano o sono sbagliati.
+    const systemPrompt = `Sei il Feynman Agent di Mentora AI. Il tuo obiettivo è valutare la spiegazione fornita da uno studente su un concetto, confrontandola con la verità (il contesto).
+Devi calcolare un punteggio di comprensione (da 0 a 100), fornire un feedback costruttivo e identificare quali concetti chiave mancano o sono sbagliati.
+Devi rispondere SOLO con un oggetto JSON valido, senza testo aggiuntivo, con la seguente struttura:
+{
+  "score": 85,
+  "feedback": "Ottimo lavoro! Hai capito il nucleo, ma ti sei perso...",
+  "missingConcepts": ["Concetto 1", "Concetto 2"]
+}`;
 
-      Contesto Reale:
-      """
-      ${trueContext}
-      """
-
-      Spiegazione dello Studente:
-      """
-      ${studentExplanation}
-      """
-    `;
-
-    const responseSchema: Schema = {
-      type: Type.OBJECT,
-      properties: {
-        score: { type: Type.INTEGER, description: "Punteggio da 0 a 100" },
-        feedback: { type: Type.STRING, description: "Feedback costruttivo per lo studente (tono incoraggiante)" },
-        missingConcepts: { 
-          type: Type.ARRAY, 
-          items: { type: Type.STRING },
-          description: "Lista di parole chiave o concetti che lo studente ha dimenticato o frainteso"
-        }
-      },
-      required: ["score", "feedback", "missingConcepts"]
-    };
+    const userPrompt = `Contesto Reale:\n"""\n${trueContext}\n"""\n\nSpiegazione dello Studente:\n"""\n${studentExplanation}\n"""`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: responseSchema,
-          temperature: 0.2,
-        }
+      const response = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2,
       });
 
-      if (!response.text) throw new Error("No response");
+      const responseText = response.choices[0]?.message?.content;
+      if (!responseText) throw new Error("No response");
 
-      return JSON.parse(response.text) as FeynmanEvaluation;
+      return JSON.parse(responseText) as FeynmanEvaluation;
     } catch (error) {
       console.error("FeynmanAgent Error:", error);
-      throw new Error("Failed to evaluate explanation.");
+      throw new Error("Failed to evaluate explanation using Groq.");
     }
   }
 }
