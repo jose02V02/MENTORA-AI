@@ -45,7 +45,7 @@ export class ProfessorAgent {
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
+        model: "gemini-2.0-flash",
         contents: contents,
         config: {
           temperature: 0.3, // Bassa temperatura per rigore logico
