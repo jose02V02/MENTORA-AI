@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ContentExtractor } from "@/lib/ContentExtractor";
 import { MapAgent } from "@/lib/agents/MapAgent";
-import { ResearchAgent } from "@/lib/agents/ResearchAgent";
+
 import { PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
@@ -64,15 +64,10 @@ export async function POST(req: NextRequest) {
     // 3. Estrazione Knowledge Graph (Map Agent)
     const mapResult = await MapAgent.extractKnowledgeGraph(rawText);
 
-    // 4. Generazione Embeddings & Salvataggio Concetti (Research Agent)
+    // 4. Salvataggio Concetti
     const conceptMap = new Map<string, string>(); // Maps Concept Name -> DB ID
 
     for (const concept of mapResult.concepts) {
-      // Create embedding
-      const embedding = await ResearchAgent.generateEmbedding(
-        `Concetto: ${concept.name}. Descrizione: ${concept.description}`
-      );
-
       // Create concept in DB
       const dbConcept = await prisma.concept.create({
         data: {
@@ -82,13 +77,6 @@ export async function POST(req: NextRequest) {
         }
       });
       conceptMap.set(concept.name, dbConcept.id);
-
-      // Save vector using raw query (Prisma workaround for Unsupported types)
-      await prisma.$executeRawUnsafe(
-        `UPDATE "Concept" SET embedding = $1::vector WHERE id = $2`,
-        `[${embedding.join(',')}]`,
-        dbConcept.id
-      );
     }
 
     // 5. Creazione Relazioni (Edges)

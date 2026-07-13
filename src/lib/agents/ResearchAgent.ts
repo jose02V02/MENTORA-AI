@@ -1,28 +1,21 @@
-import { GoogleGenAI } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+import { pipeline } from '@xenova/transformers';
 
 export class ResearchAgent {
   /**
-   * Generates a vector embedding for a given text using Gemini's text-embedding-004 model.
-   * The text-embedding-004 model produces 768-dimensional embeddings by default,
-   * so we will need to ensure our database schema handles 768 dimensions instead of 1536 (OpenAI).
+   * Generates a vector embedding for a given text using @xenova/transformers 
+   * The 'Xenova/all-MiniLM-L6-v2' model produces 384-dimensional embeddings locally.
    */
   static async generateEmbedding(text: string): Promise<number[]> {
     try {
-      const response = await ai.models.embedContent({
-        model: "text-embedding-004",
-        contents: text,
+      const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+        quantized: true, // Use quantized for speed and smaller memory
       });
-
-      if (!response.embeddings || response.embeddings.length === 0 || !response.embeddings[0].values) {
-        throw new Error("No embedding values returned from Gemini.");
-      }
-
-      return response.embeddings[0].values;
+      
+      const output = await extractor(text, { pooling: 'mean', normalize: true });
+      return Array.from(output.data);
     } catch (error) {
       console.error("ResearchAgent Embedding Error:", error);
-      throw new Error("Failed to generate embedding using Gemini.");
+      throw new Error("Failed to generate embedding using local transformers.");
     }
   }
 }

@@ -62,7 +62,7 @@ model Concept {
   document    Document? @relation(fields: [documentId], references: [id])
   name        String
   description String   @db.Text
-  embedding   Unsupported("vector(768)")?
+  embedding   Unsupported("vector(384)")?
 
   // Graph relations
   sourceEdges ConceptEdge[] @relation("SourceConcept")
