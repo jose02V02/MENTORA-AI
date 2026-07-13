@@ -4,10 +4,11 @@ import { MapAgent } from "@/lib/agents/MapAgent";
 import { ResearchAgent } from "@/lib/agents/ResearchAgent";
 import { PrismaClient } from "@prisma/client";
 
+import { prisma } from "@/lib/prisma";
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const prisma = new PrismaClient();
   try {
     const formData = await req.formData();
     const url = formData.get("url") as string | null;

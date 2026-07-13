@@ -4,10 +4,11 @@ import { TeacherAgent } from "@/lib/agents/TeacherAgent";
 import { FeynmanAgent } from "@/lib/agents/FeynmanAgent";
 import { ProfessorAgent } from "@/lib/agents/ProfessorAgent";
 
+import { prisma } from "@/lib/prisma";
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const prisma = new PrismaClient();
   try {
     const { documentId, message, isFeynmanMode, isProfessorMode } = await req.json();
     const userId = "temp-user-id"; // TODO: Implement Auth
