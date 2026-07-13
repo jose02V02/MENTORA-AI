@@ -7,6 +7,7 @@ import { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Allow up to 60 seconds for Vercel Hobby tier
 
 export async function POST(req: NextRequest) {
   try {
